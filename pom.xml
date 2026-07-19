@@ -14,6 +14,7 @@
 
     <modules>
         <module>messaging-contracts</module>
+        <module>ingester</module>
     </modules>
 
     <properties>
