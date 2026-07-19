@@ -1,13 +1,10 @@
 package com.logsentinel.ingester.parser;
 
-import com.logsentinel.contracts.LogEvent;
-import com.logsentinel.contracts.LogLevel;
-
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,7 +24,10 @@ public final class LogLineParser {
             "(?<message>.*)$"
         );
 
-    public LogEvent parse(String line) {
+    private static final Set<String> SUPPORTED_LEVELS = Set.of(
+            "TRACE", "DEBUG", "INFO", "WARN", "ERROR");
+
+    public ParsedLogLine parse(String line) {
         if (line == null || line.isBlank()) {
             throw new IllegalArgumentException("Log line must not be null or blank");
         }
@@ -37,11 +37,9 @@ public final class LogLineParser {
             throw new IllegalArgumentException("Malformed log line: expected timestamp, thread, level, logger, separator, and message");
         }
 
-        LogLevel level;
-        try {
-            level = LogLevel.valueOf(matcher.group("level"));
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Unsupported log level: " + matcher.group(3), exception);
+        String level = matcher.group("level");
+        if (!SUPPORTED_LEVELS.contains(level)) {
+            throw new IllegalArgumentException("Unsupported log level: " + level);
         }
 
         LocalDateTime timestamp;
@@ -51,15 +49,11 @@ public final class LogLineParser {
             throw new IllegalArgumentException("Malformed log timestamp: " + matcher.group(1), exception);
         }
 
-        return new LogEvent(
-                null,
-                null,
-                timestamp.toInstant(ZoneOffset.UTC),
+        return new ParsedLogLine(
+                timestamp,
+                matcher.group("thread"),
                 level,
-                matcher.group(2),
-                matcher.group(4),
-                matcher.group(5),
-                null,
-                0);
+                matcher.group("logger"),
+                matcher.group("message"));
     }
 }
