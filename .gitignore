@@ -1,0 +1,11 @@
+# Compiled Java files
+*.class
+
+# Logs
+*.log
+logs/
+log/
+*.out
+
+# VS Code
+.vscode/
