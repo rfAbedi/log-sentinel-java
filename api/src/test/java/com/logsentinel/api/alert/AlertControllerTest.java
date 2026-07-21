@@ -26,8 +26,8 @@ class AlertControllerTest {
 
     @Test
     void returnsAlertsAsJsonInServiceOrder() throws Exception {
-        when(queryService.listAlerts()).thenReturn(List.of(
-                new AlertResponse(
+        when(queryService.listAlerts(0, 20)).thenReturn(new AlertPageResponse(
+                List.of(new AlertResponse(
                         2L,
                         "newer-rule",
                         "gateway",
@@ -40,26 +40,43 @@ class AlertControllerTest {
                         "payment",
                         Instant.parse("2025-07-01T12:00:00Z"),
                         "Older alert",
-                        "WARN")));
+                        "WARN")),
+                0,
+                20,
+                2,
+                1));
 
         mockMvc.perform(get("/alerts"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
-                .andExpect(jsonPath("$[0].id").value(2))
-                .andExpect(jsonPath("$[0].ruleId").value("newer-rule"))
-                .andExpect(jsonPath("$[0].component").value("gateway"))
-                .andExpect(jsonPath("$[0].triggeredAt").value("2025-07-01T13:00:00Z"))
-                .andExpect(jsonPath("$[0].message").value("Newer alert"))
-                .andExpect(jsonPath("$[0].level").value("ERROR"))
-                .andExpect(jsonPath("$[1].id").value(1));
+                .andExpect(jsonPath("$.content[0].id").value(2))
+                .andExpect(jsonPath("$.content[0].ruleId").value("newer-rule"))
+                .andExpect(jsonPath("$.content[0].component").value("gateway"))
+                .andExpect(jsonPath("$.content[0].triggeredAt").value("2025-07-01T13:00:00Z"))
+                .andExpect(jsonPath("$.content[0].message").value("Newer alert"))
+                .andExpect(jsonPath("$.content[0].level").value("ERROR"))
+                .andExpect(jsonPath("$.content[1].id").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
     }
 
     @Test
-    void returnsEmptyJsonArrayWhenThereAreNoAlerts() throws Exception {
-        when(queryService.listAlerts()).thenReturn(List.of());
+    void passesRequestedPageAndSizeToService() throws Exception {
+        when(queryService.listAlerts(2, 5)).thenReturn(new AlertPageResponse(
+                List.of(),
+                2,
+                5,
+                0,
+                0));
 
-        mockMvc.perform(get("/alerts"))
+        mockMvc.perform(get("/alerts").param("page", "2").param("size", "5"))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.page").value(2))
+                .andExpect(jsonPath("$.size").value(5))
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.totalPages").value(0));
     }
 }

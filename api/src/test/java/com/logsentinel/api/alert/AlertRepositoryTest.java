@@ -3,9 +3,11 @@ package com.logsentinel.api.alert;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,11 +50,16 @@ class AlertRepositoryTest {
         AlertEntity newerSecond = repository.save(alert("newer-second", newerTime));
         repository.flush();
 
-        List<AlertEntity> alerts = repository.findAllByOrderByTriggeredAtDescIdDesc();
+        Page<AlertEntity> alerts = repository.findAll(PageRequest.of(
+                0,
+                2,
+                Sort.by(Sort.Order.desc("triggeredAt"), Sort.Order.desc("id"))));
 
-        assertThat(alerts)
+        assertThat(alerts.getContent())
                 .extracting(AlertEntity::getId)
-                .containsExactly(newerSecond.getId(), newerFirst.getId(), older.getId());
+                .containsExactly(newerSecond.getId(), newerFirst.getId());
+        assertThat(alerts.getTotalElements()).isEqualTo(3);
+        assertThat(alerts.getTotalPages()).isEqualTo(2);
     }
 
     private AlertEntity alert(String ruleId, Instant triggeredAt) {
