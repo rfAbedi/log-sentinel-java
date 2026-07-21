@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,5 +37,30 @@ class AlertRepositoryTest {
                     assertThat(found.getMessage()).isEqualTo("Payment gateway timeout");
                     assertThat(found.getLevel()).isEqualTo("ERROR");
                 });
+    }
+
+    @Test
+    void findsAlertsNewestFirstWithDeterministicTieBreaking() {
+        Instant olderTime = Instant.parse("2025-07-01T12:00:00Z");
+        Instant newerTime = Instant.parse("2025-07-01T13:00:00Z");
+        AlertEntity older = repository.save(alert("older", olderTime));
+        AlertEntity newerFirst = repository.save(alert("newer-first", newerTime));
+        AlertEntity newerSecond = repository.save(alert("newer-second", newerTime));
+        repository.flush();
+
+        List<AlertEntity> alerts = repository.findAllByOrderByTriggeredAtDescIdDesc();
+
+        assertThat(alerts)
+                .extracting(AlertEntity::getId)
+                .containsExactly(newerSecond.getId(), newerFirst.getId(), older.getId());
+    }
+
+    private AlertEntity alert(String ruleId, Instant triggeredAt) {
+        return new AlertEntity(
+                ruleId,
+                "gateway",
+                triggeredAt,
+                "Test alert",
+                "ERROR");
     }
 }
