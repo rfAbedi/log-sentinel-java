@@ -16,6 +16,7 @@
         <module>messaging-contracts</module>
         <module>ingester</module>
         <module>evaluator</module>
+        <module>api</module>
     </modules>
 
     <properties>
