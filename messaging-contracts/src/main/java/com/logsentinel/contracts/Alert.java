@@ -1,4 +1,4 @@
-package com.logsentinel.evaluator.alert;
+package com.logsentinel.contracts;
 
 import java.time.Instant;
 
