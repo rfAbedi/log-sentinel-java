@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -78,5 +79,35 @@ class AlertControllerTest {
                 .andExpect(jsonPath("$.size").value(5))
                 .andExpect(jsonPath("$.totalElements").value(0))
                 .andExpect(jsonPath("$.totalPages").value(0));
+    }
+
+    @Test
+    void rejectsNegativePage() throws Exception {
+        assertInvalidRequest("page", "-1");
+    }
+
+    @Test
+    void rejectsZeroPageSize() throws Exception {
+        assertInvalidRequest("size", "0");
+    }
+
+    @Test
+    void rejectsPageSizeAboveMaximum() throws Exception {
+        assertInvalidRequest("size", "101");
+    }
+
+    @Test
+    void rejectsNonNumericPage() throws Exception {
+        assertInvalidRequest("page", "first");
+    }
+
+    private void assertInvalidRequest(String parameter, String value) throws Exception {
+        mockMvc.perform(get("/alerts").param(parameter, value))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Invalid request parameters"));
+
+        verifyNoInteractions(queryService);
     }
 }
