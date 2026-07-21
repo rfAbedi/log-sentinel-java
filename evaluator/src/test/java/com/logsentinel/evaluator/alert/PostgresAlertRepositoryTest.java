@@ -1,5 +1,6 @@
 package com.logsentinel.evaluator.alert;
 
+import com.logsentinel.contracts.Alert;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;

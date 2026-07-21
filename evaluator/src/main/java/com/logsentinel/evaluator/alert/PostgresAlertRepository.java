@@ -1,5 +1,7 @@
 package com.logsentinel.evaluator.alert;
 
+import com.logsentinel.contracts.Alert;
+
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
