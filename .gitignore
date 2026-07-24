@@ -21,3 +21,11 @@ dependency-reduced-pom.xml
 .mvn/timing.properties
 
 *.pdf
+
+*.zip
+
+# Runtime log input directory
+!runtime/
+!runtime/logs/
+runtime/logs/*
+!runtime/logs/.gitkeep

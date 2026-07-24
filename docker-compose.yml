@@ -15,10 +15,10 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
 
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:29093"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092"
-      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_LISTENERS: "CONTROLLER://:29093,INTERNAL://:29092,EXTERNAL://:9092"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -26,9 +26,14 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-    
+
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
     restart: unless-stopped
 
   postgres:
@@ -72,6 +77,71 @@ services:
 
     command: migrate
     restart: "no"
+
+  evaluator:
+    image: log-sentinel-evaluator:local
+    container_name: log-sentinel-evaluator
+
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      KAFKA_TOPIC: "log-events"
+      KAFKA_GROUP_ID: "log-sentinel-evaluator"
+      RULES_FILE: "/config/rules.yaml"
+      LOG_SENTINEL_DB_URL: "jdbc:postgresql://postgres:5432/log_sentinel"
+      LOG_SENTINEL_DB_USER: "log_sentinel"
+      LOG_SENTINEL_DB_PASSWORD: "log_sentinel"
+      KAFKA_POLL_TIMEOUT_MS: "1000"
+
+    volumes:
+      - ./config/rules.yaml:/config/rules.yaml:ro
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+
+    restart: unless-stopped
+
+  ingester:
+    image: log-sentinel-ingester:local
+    container_name: log-sentinel-ingester
+
+    environment:
+      LOG_DIRECTORY: "/logs"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      KAFKA_TOPIC: "log-events"
+      SOURCE_TIME_ZONE: "UTC"
+
+    volumes:
+      - ./runtime/logs:/logs
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    restart: "no"
+
+  api:
+    image: log-sentinel-api:local
+    container_name: log-sentinel-api
+    ports:
+      - "8080:8080"
+
+    environment:
+      LOG_SENTINEL_DB_URL: "jdbc:postgresql://postgres:5432/log_sentinel"
+      LOG_SENTINEL_DB_USER: "log_sentinel"
+      LOG_SENTINEL_DB_PASSWORD: "log_sentinel"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      flyway:
+        condition: service_completed_successfully
+
+    restart: unless-stopped
 
 volumes:
   postgres-data:
