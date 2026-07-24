@@ -8,7 +8,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class KafkaLogEventConsumer {
+public final class KafkaLogEventConsumer implements LogEventBatchConsumer {
 
     private final Consumer<String, LogEvent> consumer;
     private final String topic;
@@ -18,6 +18,7 @@ public final class KafkaLogEventConsumer {
         this.topic = topic;
     }
 
+    @Override
     public List<LogEvent> pollOnce(Duration timeout) {
         consumer.subscribe(List.of(topic));
         ConsumerRecords<String, LogEvent> records = consumer.poll(timeout);

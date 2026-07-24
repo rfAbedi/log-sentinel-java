@@ -8,7 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 
-public final class PostgresAlertRepository {
+public final class PostgresAlertRepository implements AlertRepository {
 
     private final DataSource dataSource;
 
@@ -16,6 +16,7 @@ public final class PostgresAlertRepository {
         this.dataSource = dataSource;
     }
 
+    @Override
     public void save(Alert alert) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
