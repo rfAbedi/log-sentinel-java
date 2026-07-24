@@ -7,7 +7,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 
 import java.util.concurrent.Future;
 
-public final class KafkaLogEventPublisher {
+public final class KafkaLogEventPublisher implements LogEventPublisher {
 
     private final Producer<String, LogEvent> producer;
     private final String topic;
@@ -17,6 +17,7 @@ public final class KafkaLogEventPublisher {
         this.topic = topic;
     }
 
+    @Override
     public Future<RecordMetadata> publish(LogEvent event) {
         ProducerRecord<String, LogEvent> record = new ProducerRecord<>(
                 topic,
