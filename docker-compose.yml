@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
 
   kafka-ui:
+    profiles: ["tools"]
     image: ghcr.io/kafbat/kafka-ui:v1.5.0
     container_name: log-sentinel-kafka-ui
     ports:
@@ -75,6 +76,7 @@ services:
     restart: unless-stopped
 
   adminer:
+    profiles: ["tools"]
     image: adminer:5.5.0-standalone
     container_name: log-sentinel-adminer
     ports:
