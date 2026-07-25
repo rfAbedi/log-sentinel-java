@@ -50,6 +50,44 @@ class LogFileProcessorTest {
         assertEquals(2, second.lineNumber());
     }
 
+
+    @Test
+    void skipsMalformedLinesAndPublishesTheRemainingLines() {
+        RecordingPublisher publisher = new RecordingPublisher();
+        LogFileProcessor processor = processor(publisher);
+        LogFileContent fileContent = new LogFileContent(
+                Path.of("payment-service_2025-07-01_12-55-55.log"),
+                List.of(
+                        "2025-07-01 12:56:07,451 [worker-1] INFO com.example.Service - first",
+                        "this is not a valid log line",
+                        "2025-07-01 12:56:09,451 [worker-1] ERROR com.example.Service - third"));
+
+        List<Future<?>> results = processor.process(fileContent);
+
+        assertEquals(2, results.size());
+        assertEquals(2, publisher.events.size());
+        assertEquals("first", publisher.events.get(0).message());
+        assertEquals(1, publisher.events.get(0).lineNumber());
+        assertEquals("third", publisher.events.get(1).message());
+        assertEquals(3, publisher.events.get(1).lineNumber());
+    }
+
+    @Test
+    void returnsNoPublishResultsWhenEveryLineIsMalformed() {
+        RecordingPublisher publisher = new RecordingPublisher();
+        LogFileProcessor processor = processor(publisher);
+        LogFileContent fileContent = new LogFileContent(
+                Path.of("payment-service_2025-07-01_12-55-55.log"),
+                List.of(
+                        "not a log line",
+                        "2025-07-01 12:56:07,451 INFO missing thread"));
+
+        List<Future<?>> results = processor.process(fileContent);
+
+        assertEquals(0, results.size());
+        assertEquals(0, publisher.events.size());
+    }
+
     @Test
     void stopsAndPropagatesWhenPublishingFails() {
         RuntimeException failure = new RuntimeException("Kafka unavailable");
