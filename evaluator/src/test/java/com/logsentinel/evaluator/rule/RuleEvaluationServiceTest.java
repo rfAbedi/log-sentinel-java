@@ -29,6 +29,7 @@ class RuleEvaluationServiceTest {
         List<Alert> alerts = service.evaluate(event);
 
         assertEquals(List.of(new Alert(
+                "event-1",
                 "gateway-errors",
                 "gateway",
                 event.eventTime(),
@@ -71,12 +72,14 @@ class RuleEvaluationServiceTest {
 
         assertEquals(List.of(
                 new Alert(
+                        "event-2",
                         "gateway-error-count",
                         "gateway",
                         triggeringEvent.eventTime(),
                         triggeringEvent.message(),
                         "ERROR"),
                 new Alert(
+                        "event-2",
                         "gateway-rate",
                         "gateway",
                         triggeringEvent.eventTime(),

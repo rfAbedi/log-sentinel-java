@@ -15,28 +15,37 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PostgresAlertRepositoryTest {
 
     @Test
-    void savesAlertToPostgresTable() throws Exception {
-        CapturingDataSource dataSource = new CapturingDataSource();
+    void insertsAlertWithItsSourceEventId() throws Exception {
+        CapturingDataSource dataSource = new CapturingDataSource(1);
         PostgresAlertRepository repository = new PostgresAlertRepository(dataSource);
+        Alert alert = alert();
 
-        Alert alert = new Alert(
-                "gateway-errors",
-                "gateway",
-                Instant.parse("2025-07-01T12:56:07.451Z"),
-                "Payment gateway timeout",
-                "ERROR");
+        boolean inserted = repository.save(alert);
 
-        repository.save(alert);
-
+        assertTrue(inserted);
         assertEquals(
-                "INSERT INTO alerts (rule_id, component, triggered_at, message, level) VALUES (?, ?, ?, ?, ?)",
+                """
+                        INSERT INTO alerts (
+                            source_event_id,
+                            rule_id,
+                            component,
+                            triggered_at,
+                            message,
+                            level
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (rule_id, source_event_id) DO NOTHING
+                        """,
                 dataSource.sql);
         assertEquals(
                 List.of(
+                        "event-123",
                         "gateway-errors",
                         "gateway",
                         Timestamp.from(alert.triggeredAt()),
@@ -45,9 +54,34 @@ class PostgresAlertRepositoryTest {
                 dataSource.parameters);
     }
 
+    @Test
+    void reportsDuplicateAlertAsNotInserted() throws Exception {
+        PostgresAlertRepository repository = new PostgresAlertRepository(
+                new CapturingDataSource(0));
+
+        boolean inserted = repository.save(alert());
+
+        assertFalse(inserted);
+    }
+
+    private Alert alert() {
+        return new Alert(
+                "event-123",
+                "gateway-errors",
+                "gateway",
+                Instant.parse("2025-07-01T12:56:07.451Z"),
+                "Payment gateway timeout",
+                "ERROR");
+    }
+
     private static final class CapturingDataSource implements DataSource {
         private final List<Object> parameters = new ArrayList<>();
+        private final int updatedRows;
         private String sql;
+
+        private CapturingDataSource(int updatedRows) {
+            this.updatedRows = updatedRows;
+        }
 
         @Override
         public Connection getConnection() {
@@ -60,7 +94,7 @@ class PostgresAlertRepositoryTest {
                             return Proxy.newProxyInstance(
                                     PreparedStatement.class.getClassLoader(),
                                     new Class<?>[]{PreparedStatement.class},
-                                    new PreparedStatementHandler(parameters));
+                                    new PreparedStatementHandler(parameters, updatedRows));
                         }
                         if ("close".equals(method.getName())) {
                             return null;
@@ -110,22 +144,22 @@ class PostgresAlertRepositoryTest {
 
     private static final class PreparedStatementHandler implements InvocationHandler {
         private final List<Object> parameters;
+        private final int updatedRows;
 
-        private PreparedStatementHandler(List<Object> parameters) {
+        private PreparedStatementHandler(List<Object> parameters, int updatedRows) {
             this.parameters = parameters;
+            this.updatedRows = updatedRows;
         }
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
             switch (method.getName()) {
                 case "setString":
-                    parameters.add(args[1]);
-                    return null;
                 case "setTimestamp":
                     parameters.add(args[1]);
                     return null;
                 case "executeUpdate":
-                    return 1;
+                    return updatedRows;
                 case "close":
                     return null;
                 default:

@@ -38,7 +38,7 @@ class LogEventMapperTest {
         assertEquals("com.example.GatewayClient", event.logger());
         assertEquals("Payment gateway timeout", event.message());
         assertEquals("payment-service_2025-07-01_12-55-55.log", event.sourceFile());
-        assertEquals(3, event.lineNumber());
+        assertEquals(3L, event.lineNumber());
     }
 
     @Test
@@ -52,12 +52,23 @@ class LogEventMapperTest {
     }
 
     @Test
-    void generatesNewEventIdForEachMapping() {
+    void generatesTheSameEventIdWhenTheSameLineIsReprocessed() {
         LogEventMapper mapper = new LogEventMapper(ZoneOffset.UTC);
         Path sourceFile = Path.of("payment-service_2025-07-01_12-55-55.log");
 
         LogEvent first = mapper.map(PARSED_LINE, sourceFile, 1);
         LogEvent second = mapper.map(PARSED_LINE, sourceFile, 1);
+
+        assertEquals(first.eventId(), second.eventId());
+    }
+
+    @Test
+    void generatesDifferentEventIdsForDifferentSourceLines() {
+        LogEventMapper mapper = new LogEventMapper(ZoneOffset.UTC);
+        Path sourceFile = Path.of("payment-service_2025-07-01_12-55-55.log");
+
+        LogEvent first = mapper.map(PARSED_LINE, sourceFile, 1);
+        LogEvent second = mapper.map(PARSED_LINE, sourceFile, 2);
 
         assertNotEquals(first.eventId(), second.eventId());
     }

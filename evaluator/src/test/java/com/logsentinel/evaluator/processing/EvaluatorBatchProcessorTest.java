@@ -12,7 +12,9 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,6 +51,20 @@ class EvaluatorBatchProcessorTest {
     }
 
     @Test
+    void countsARepeatedKafkaEventOnlyOnce() throws Exception {
+        LogEvent repeatedEvent = event("event-1", LogLevel.ERROR, 0);
+        CapturingAlertRepository repository = new CapturingAlertRepository();
+        EvaluatorBatchProcessor processor = processor(
+                List.of(repeatedEvent, repeatedEvent),
+                repository);
+
+        int savedAlertCount = processor.pollOnce(Duration.ofSeconds(1));
+
+        assertEquals(1, savedAlertCount);
+        assertEquals(List.of(alertFor(repeatedEvent)), repository.savedAlerts);
+    }
+
+    @Test
     void stopsAndPropagatesWhenSavingAnAlertFails() {
         LogEvent firstError = event("event-1", LogLevel.ERROR, 0);
         LogEvent secondError = event("event-2", LogLevel.ERROR, 1);
@@ -82,6 +98,7 @@ class EvaluatorBatchProcessorTest {
 
     private Alert alertFor(LogEvent event) {
         return new Alert(
+                event.eventId(),
                 "gateway-errors",
                 "gateway",
                 event.eventTime(),
@@ -104,6 +121,7 @@ class EvaluatorBatchProcessorTest {
 
     private static final class CapturingAlertRepository implements AlertRepository {
         private final List<Alert> savedAlerts = new ArrayList<>();
+        private final Set<String> savedKeys = new HashSet<>();
         private final int failOnSaveNumber;
         private int saveAttempts;
 
@@ -116,12 +134,19 @@ class EvaluatorBatchProcessorTest {
         }
 
         @Override
-        public void save(Alert alert) throws SQLException {
+        public boolean save(Alert alert) throws SQLException {
             saveAttempts++;
             if (saveAttempts == failOnSaveNumber) {
                 throw new SQLException("database unavailable");
             }
+
+            String key = alert.ruleId() + ":" + alert.sourceEventId();
+            if (!savedKeys.add(key)) {
+                return false;
+            }
+
             savedAlerts.add(alert);
+            return true;
         }
     }
 }
