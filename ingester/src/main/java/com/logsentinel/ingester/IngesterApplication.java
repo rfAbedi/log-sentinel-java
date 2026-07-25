@@ -2,11 +2,12 @@ package com.logsentinel.ingester;
 
 import com.logsentinel.contracts.LogEvent;
 import com.logsentinel.contracts.kafka.LogEventSerializer;
-import com.logsentinel.ingester.file.ExistingLogFileReader;
 import com.logsentinel.ingester.kafka.KafkaLogEventPublisher;
 import com.logsentinel.ingester.mapping.LogEventMapper;
 import com.logsentinel.ingester.parser.LogLineParser;
 import com.logsentinel.ingester.processing.LogFileProcessor;
+import com.logsentinel.ingester.watch.LogDirectoryWatcher;
+import com.logsentinel.ingester.watch.PublishingLogFileHandler;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -28,13 +29,36 @@ public final class IngesterApplication {
                     new LogEventMapper(settings.sourceTimeZone()),
                     new KafkaLogEventPublisher(producer, settings.kafkaTopic()));
 
-            OneShotIngester ingester = new OneShotIngester(
-                    new ExistingLogFileReader(settings.logDirectory()),
-                    processor);
+            try (LogDirectoryWatcher watcher = new LogDirectoryWatcher(
+                    settings.logDirectory(),
+                    new PublishingLogFileHandler(processor))) {
+                Thread shutdownHook = new Thread(() -> closeQuietly(watcher), "ingester-shutdown");
+                Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-            int processedFiles = ingester.run();
-            producer.flush();
-            System.out.printf("Processed %d log file(s).%n", processedFiles);
+                System.out.printf("Watching %s for new .log files.%n", settings.logDirectory());
+
+                try {
+                    watcher.run();
+                } finally {
+                    removeShutdownHook(shutdownHook);
+                }
+            }
+        }
+    }
+
+    private static void closeQuietly(LogDirectoryWatcher watcher) {
+        try {
+            watcher.close();
+        } catch (Exception ignored) {
+            // Best-effort shutdown.
+        }
+    }
+
+    private static void removeShutdownHook(Thread shutdownHook) {
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignored) {
+            // The JVM is already shutting down.
         }
     }
 

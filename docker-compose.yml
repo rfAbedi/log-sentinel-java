@@ -122,7 +122,7 @@ services:
       kafka:
         condition: service_healthy
 
-    restart: "no"
+    restart: unless-stopped
 
   api:
     image: log-sentinel-api:local
