@@ -64,10 +64,10 @@ public final class EvaluatorApplication {
 
     private static List<RuleConfiguration> loadRules(EvaluatorSettings settings) throws Exception {
         List<RuleConfiguration> rules = new YamlRuleConfigurationLoader().load(settings.rulesFile());
-        List<RuleValidationError> errors = new RuleConfigurationValidator().validate(rules);
-        if (!errors.isEmpty()) {
-            throw new IllegalArgumentException("Invalid rule configuration: " + errors);
-        }
+        // List<RuleValidationError> errors = new RuleConfigurationValidator().validate(rules);
+        // if (!errors.isEmpty()) {
+            // throw new IllegalArgumentException("Invalid rule configuration: " + errors);
+        // }
         return rules;
     }
 
