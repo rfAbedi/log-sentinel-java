@@ -29,8 +29,9 @@ public final class EvaluatorBatchProcessor {
 
         for (LogEvent event : consumer.pollOnce(timeout)) {
             for (Alert alert : ruleEvaluationService.evaluate(event)) {
-                alertRepository.save(alert);
-                savedAlertCount++;
+                if (alertRepository.save(alert)) {
+                    savedAlertCount++;
+                }
             }
         }
 

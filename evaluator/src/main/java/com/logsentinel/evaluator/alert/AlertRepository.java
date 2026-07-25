@@ -7,5 +7,5 @@ import java.sql.SQLException;
 @FunctionalInterface
 public interface AlertRepository {
 
-    void save(Alert alert) throws SQLException;
+    boolean save(Alert alert) throws SQLException;
 }

@@ -5,7 +5,9 @@ import com.logsentinel.contracts.LogLevel;
 import com.logsentinel.ingester.parser.LogFilenameParser;
 import com.logsentinel.ingester.parser.ParsedLogLine;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
 
@@ -19,19 +21,38 @@ public final class LogEventMapper {
     }
 
     public LogEvent map(ParsedLogLine parsedLine, Path sourceFile, long lineNumber) {
-
         String filename = sourceFile.getFileName().toString();
         LogLevel level = LogLevel.valueOf(parsedLine.level());
+        Instant eventTime = parsedLine.timestamp().atZone(sourceLogZone).toInstant();
 
         return new LogEvent(
-                UUID.randomUUID().toString(),
+                eventId(filename, lineNumber, eventTime, level, parsedLine),
                 filenameParser.extractComponent(filename),
-                parsedLine.timestamp().atZone(sourceLogZone).toInstant(),
+                eventTime,
                 level,
                 parsedLine.threadName(),
                 parsedLine.loggerName(),
                 parsedLine.message(),
                 filename,
                 lineNumber);
+    }
+
+    private String eventId(
+            String filename,
+            long lineNumber,
+            Instant eventTime,
+            LogLevel level,
+            ParsedLogLine parsedLine) {
+        String identity = String.join(
+                "\u001f",
+                filename,
+                Long.toString(lineNumber),
+                eventTime.toString(),
+                parsedLine.threadName(),
+                level.name(),
+                parsedLine.loggerName(),
+                parsedLine.message());
+
+        return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8)).toString();
     }
 }

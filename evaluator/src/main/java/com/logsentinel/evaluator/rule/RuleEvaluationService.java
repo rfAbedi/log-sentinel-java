@@ -40,6 +40,7 @@ public final class RuleEvaluationService {
 
     private Alert toAlert(RuleConfiguration rule, LogEvent event) {
         return new Alert(
+                event.eventId(),
                 rule.id(),
                 event.component(),
                 event.eventTime(),
