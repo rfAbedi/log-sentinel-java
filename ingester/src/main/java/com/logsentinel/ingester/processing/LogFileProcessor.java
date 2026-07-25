@@ -29,8 +29,21 @@ public final class LogFileProcessor {
         List<Future<?>> publishResults = new ArrayList<>();
 
         for (int index = 0; index < fileContent.lines().size(); index++) {
-            ParsedLogLine parsedLine = lineParser.parse(fileContent.lines().get(index));
-            LogEvent event = eventMapper.map(parsedLine, fileContent.path(), index + 1L);
+            long lineNumber = index + 1L;
+            ParsedLogLine parsedLine;
+
+            try {
+                parsedLine = lineParser.parse(fileContent.lines().get(index));
+            } catch (IllegalArgumentException exception) {
+                System.err.printf(
+                        "Skipping malformed log line %s:%d: %s%n",
+                        fileContent.path(),
+                        lineNumber,
+                        exception.getMessage());
+                continue;
+            }
+
+            LogEvent event = eventMapper.map(parsedLine, fileContent.path(), lineNumber);
             publishResults.add(publisher.publish(event));
         }
 
